@@ -1,9 +1,10 @@
 use axum::{
+    http::{StatusCode},
+    response::{Html, IntoResponse, Response},
     routing::{get, post},
-    http::StatusCode,
-    response::{IntoResponse, Html},
     Json, Router,
 };
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 use tracing;
@@ -17,6 +18,7 @@ async fn main() {
     let app = Router::new()
         .route("/", get(root))
         .route("/html", get(index))
+        .route("/user_info", get(user_info))
         .route("/users", post(create_user));
 
     //run our app with hyper on localhost:3000
@@ -62,6 +64,47 @@ async fn create_user(
     // this will be converted into a JSON response
     // with a status code of `201 Created`
     (StatusCode::CREATED, Json(user))
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct Auth {
+    pub exp: i64,
+    pub iat: i64,
+    pub jti: String,
+    pub iss: String,
+    pub aud: Vec<String>,
+    pub sub: String,
+    pub typ: String,
+    pub azp: String,
+    pub session_state: String,
+    pub given_name: String,
+    pub family_name: String,
+    pub preferred_username: String,
+    pub email: String,
+    pub email_verified: bool,
+    pub scope: String,
+    pub sid: String,
+    pub created_at: i64,
+    pub client_id: String,
+    pub username: String,
+    pub active: bool,
+}
+
+
+async fn user_info() -> Response {
+    let params = [("Content-Type", "application/x-www-form-urlencoded")];
+    let client = Client::new();
+    let response = client.post("https://keycloak")
+        .form(&params)
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .body("body content")
+        .send()        
+        .await.unwrap()
+        .json::<Auth>()
+        .await.unwrap();
+
+    println!("Body: {:?}", &response);
+   Json(response).into_response()
 }
 
 // the input to our `create_user` handler
